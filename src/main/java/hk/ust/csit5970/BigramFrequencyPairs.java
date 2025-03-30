@@ -34,9 +34,6 @@ import org.apache.log4j.Logger;
 public class BigramFrequencyPairs extends Configured implements Tool {
 	private static final Logger LOG = Logger.getLogger(BigramFrequencyPairs.class);
 
-	/*
-	 * TODO: write your Mapper here.
-	 */
 	private static class MyMapper extends
 			Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
 
@@ -47,30 +44,49 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 		@Override
 		public void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
-			String line = ((Text) value).toString();
-			String[] words = line.trim().split("\\s+");
-			
-			/*
-			 * TODO: Your implementation goes here.
-			 */
+			String line = value.toString().trim();
+			String[] words = line.split("\\s+");
+
+			for (int i = 0; i < words.length - 1; i++) {
+				// Emit bigram (A, B)
+				BIGRAM.set(words[i], words[i + 1]);
+				context.write(BIGRAM, ONE);
+
+				// Emit unigram (A, *)
+				BIGRAM.set(words[i], "*");
+				context.write(BIGRAM, ONE);
+			}
+
+			// Emit unigram for the last word
+			if (words.length > 0) {
+				BIGRAM.set(words[words.length - 1], "*");
+				context.write(BIGRAM, ONE);
+			}
 		}
 	}
 
-	/*
-	 * TODO: Write your reducer here.
-	 */
 	private static class MyReducer extends
 			Reducer<PairOfStrings, IntWritable, PairOfStrings, FloatWritable> {
 
-		// Reuse objects.
 		private final static FloatWritable VALUE = new FloatWritable();
+		private int marginal = 0;
 
 		@Override
 		public void reduce(PairOfStrings key, Iterable<IntWritable> values,
 				Context context) throws IOException, InterruptedException {
-			/*
-			 * TODO: Your implementation goes here.
-			 */
+			int sum = 0;
+			for (IntWritable value : values) {
+				sum += value.get();
+			}
+
+			if (key.getRightElement().equals("*")) {
+				// Update marginal count for the left word
+				marginal = sum;
+			} else {
+				// Calculate relative frequency
+				VALUE.set((float) sum / marginal);
+				context.write(key, VALUE);
+			}
 		}
 	}
 	
@@ -81,9 +97,12 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 		@Override
 		public void reduce(PairOfStrings key, Iterable<IntWritable> values,
 				Context context) throws IOException, InterruptedException {
-			/*
-			 * TODO: Your implementation goes here.
-			 */
+			int sum = 0;
+			for (IntWritable value : values) {
+				sum += value.get();
+			}
+			SUM.set(sum);
+			context.write(key, SUM);
 		}
 	}
 

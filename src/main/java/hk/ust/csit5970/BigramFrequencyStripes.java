@@ -41,59 +41,82 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 	private static class MyMapper extends
 			Mapper<LongWritable, Text, Text, HashMapStringIntWritable> {
 
-		// Reuse objects to save overhead of object creation.
 		private static final Text KEY = new Text();
 		private static final HashMapStringIntWritable STRIPE = new HashMapStringIntWritable();
 
 		@Override
 		public void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
-			String line = ((Text) value).toString();
-			String[] words = line.trim().split("\\s+");
+			String line = value.toString().trim();
+			String[] words = line.split("\\s+");
 
-			/*
-			 * TODO: Your implementation goes here.
-			 */
+			for (int i = 0; i < words.length - 1; i++) {
+				KEY.set(words[i]);
+				STRIPE.clear();
+				STRIPE.increment(words[i + 1]);
+				context.write(KEY, STRIPE);
+
+				// Emit marginal count
+				STRIPE.clear();
+				STRIPE.increment("*");
+				context.write(KEY, STRIPE);
+			}
+
+			// Emit marginal count for the last word
+			if (words.length > 0) {
+				KEY.set(words[words.length - 1]);
+				STRIPE.clear();
+				STRIPE.increment("*");
+				context.write(KEY, STRIPE);
+			}
 		}
 	}
 
 	/*
-	 * TODO: write your reducer to aggregate all stripes associated with each key
+	 * Combiner: aggregates all stripes with the same key
+	 */
+	private static class MyCombiner extends
+			Reducer<Text, HashMapStringIntWritable, Text, HashMapStringIntWritable> {
+		private final static HashMapStringIntWritable SUM_STRIPES = new HashMapStringIntWritable();
+
+		@Override
+		public void reduce(Text key, Iterable<HashMapStringIntWritable> stripes, Context context)
+				throws IOException, InterruptedException {
+			SUM_STRIPES.clear();
+			for (HashMapStringIntWritable stripe : stripes) {
+				SUM_STRIPES.plus(stripe);
+			}
+			context.write(key, SUM_STRIPES);
+		}
+	}
+
+	/*
+	 * Reducer: aggregates all stripes associated with each key
 	 */
 	private static class MyReducer extends
 			Reducer<Text, HashMapStringIntWritable, PairOfStrings, FloatWritable> {
 
-		// Reuse objects.
 		private final static HashMapStringIntWritable SUM_STRIPES = new HashMapStringIntWritable();
 		private final static PairOfStrings BIGRAM = new PairOfStrings();
 		private final static FloatWritable FREQ = new FloatWritable();
 
 		@Override
-		public void reduce(Text key,
-				Iterable<HashMapStringIntWritable> stripes, Context context)
+		public void reduce(Text key, Iterable<HashMapStringIntWritable> stripes, Context context)
 				throws IOException, InterruptedException {
-			/*
-			 * TODO: Your implementation goes here.
-			 */
-		}
-	}
+			SUM_STRIPES.clear();
+			for (HashMapStringIntWritable stripe : stripes) {
+				SUM_STRIPES.plus(stripe);
+			}
 
-	/*
-	 * TODO: Write your combiner to aggregate all stripes with the same key
-	 */
-	private static class MyCombiner
-			extends
-			Reducer<Text, HashMapStringIntWritable, Text, HashMapStringIntWritable> {
-		// Reuse objects.
-		private final static HashMapStringIntWritable SUM_STRIPES = new HashMapStringIntWritable();
-
-		@Override
-		public void reduce(Text key,
-				Iterable<HashMapStringIntWritable> stripes, Context context)
-				throws IOException, InterruptedException {
-			/*
-			 * TODO: Your implementation goes here.
-			 */
+			int marginal = SUM_STRIPES.get("*");
+			for (Map.Entry<String, Integer> entry : SUM_STRIPES.entrySet()) {
+				String neighbor = entry.getKey();
+				if (!neighbor.equals("*")) {
+					BIGRAM.set(key.toString(), neighbor);
+					FREQ.set((float) entry.getValue() / marginal);
+					context.write(BIGRAM, FREQ);
+				}
+			}
 		}
 	}
 
