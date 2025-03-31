@@ -39,141 +39,165 @@ public class CORPairs extends Configured implements Tool {
 	private static final Logger LOG = Logger.getLogger(CORPairs.class);
 
 	/*
-	 * First-pass Mapper: 输出单词及其计数
+	 * TODO: Write your first-pass Mapper here.
 	 */
 	private static class CORMapper1 extends
 			Mapper<LongWritable, Text, Text, IntWritable> {
 		@Override
 		public void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
-			HashMap<String, Integer> word_set = new HashMap<String, Integer>();
-			// 使用提供的 tokenizer
+			HashMap<String, Integer> wordCount = new HashMap<String, Integer>();
+			// Please use this tokenizer! DO NOT implement a tokenizer by yourself!
 			String clean_doc = value.toString().replaceAll("[^a-z A-Z]", " ");
 			StringTokenizer doc_tokenizer = new StringTokenizer(clean_doc);
-
+			/*
+			 * TODO: Your implementation goes here.
+			 */
 			while (doc_tokenizer.hasMoreTokens()) {
-				String word = doc_tokenizer.nextToken().toLowerCase();
-				word_set.put(word, word_set.getOrDefault(word, 0) + 1);
-			}
-
-			for (Map.Entry<String, Integer> entry : word_set.entrySet()) {
-				context.write(new Text(entry.getKey()), new IntWritable(entry.getValue()));
-			}
+                String token = doc_tokenizer.nextToken().toLowerCase();
+                // Count each occurrence
+                if (wordCount.containsKey(token)) {
+                    wordCount.put(token, wordCount.get(token) + 1);
+                } else {
+                    wordCount.put(token, 1);
+                }
+            }
+            // Emit each word with its count from this line.
+            for (Map.Entry<String, Integer> entry : wordCount.entrySet()) {
+                context.write(new Text(entry.getKey()), new IntWritable(entry.getValue()));
+            }
 		}
 	}
 
 	/*
-	 * First-pass Reducer: 聚合单词计数
+	 * TODO: Write your first-pass reducer here.
 	 */
 	private static class CORReducer1 extends
 			Reducer<Text, IntWritable, Text, IntWritable> {
 		@Override
-		public void reduce(Text key, Iterable<IntWritable> values, Context context)
-				throws IOException, InterruptedException {
+		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+			/*
+			 * TODO: Your implementation goes here.
+			 */
 			int sum = 0;
-			for (IntWritable value : values) {
-				sum += value.get();
-			}
-			context.write(key, new IntWritable(sum));
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+            context.write(key, new IntWritable(sum));
 		}
 	}
 
 
 	/*
-	 * Second-pass Mapper: 输出单词对及其计数
+	 * TODO: Write your second-pass Mapper here.
 	 */
-	public static class CORPairsMapper2 extends
-			Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
+	public static class CORPairsMapper2 extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
 		@Override
-		protected void map(LongWritable key, Text value, Context context)
-				throws IOException, InterruptedException {
-			// 使用提供的 tokenizer
+		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+			// Please use this tokenizer! DO NOT implement a tokenizer by yourself!
 			StringTokenizer doc_tokenizer = new StringTokenizer(value.toString().replaceAll("[^a-z A-Z]", " "));
-			List<String> words = new ArrayList<String>();
-
-			while (doc_tokenizer.hasMoreTokens()) {
-				words.add(doc_tokenizer.nextToken().toLowerCase());
-			}
-
-			for (int i = 0; i < words.size(); i++) {
-				for (int j = i + 1; j < words.size(); j++) {
-					String word1 = words.get(i);
-					String word2 = words.get(j);
-					if (!word1.equals(word2)) {
-						PairOfStrings pair = new PairOfStrings(
-								word1.compareTo(word2) < 0 ? word1 : word2,
-								word1.compareTo(word2) < 0 ? word2 : word1
-						);
-						context.write(pair, new IntWritable(1));
-					}
-				}
-			}
+			/*
+			 * TODO: Your implementation goes here.
+			 */
+			String line = value.toString();
+			Set<String> uniqueWords = new TreeSet<String>();
+            while (doc_tokenizer.hasMoreTokens()) {
+                String token = doc_tokenizer.nextToken().toLowerCase();
+                if (!token.isEmpty()) {
+                    uniqueWords.add(token);
+                }
+            }
+            // Convert to a list to generate all unique pairs (A, B) with A < B.
+            List<String> wordsList = new ArrayList<String>(uniqueWords);
+            int n = wordsList.size();
+            for (int i = 0; i < n; i++) {
+                for (int j = i + 1; j < n; j++) {
+                    PairOfStrings pair = new PairOfStrings(wordsList.get(i), wordsList.get(j));
+                    context.write(pair, new IntWritable(1));
+                }
+            }
 		}
 	}
 
 	/*
-	 * Second-pass Combiner: 聚合单词对计数
+	 * TODO: Write your second-pass Combiner here.
 	 */
-	private static class CORPairsCombiner2 extends
-			Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
+	private static class CORPairsCombiner2 extends Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
 		@Override
-		protected void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context)
-				throws IOException, InterruptedException {
+		protected void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+			/*
+			 * TODO: Your implementation goes here.
+			 */
 			int sum = 0;
-			for (IntWritable value : values) {
-				sum += value.get();
-			}
-			context.write(key, new IntWritable(sum));
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+            context.write(key, new IntWritable(sum));
 		}
 	}
 
 	/*
-	 * Second-pass Reducer: 计算相关系数
+	 * TODO: Write your second-pass Reducer here.
 	 */
-	public static class CORPairsReducer2 extends
-			Reducer<PairOfStrings, IntWritable, PairOfStrings, DoubleWritable> {
+	public static class CORPairsReducer2 extends Reducer<PairOfStrings, IntWritable, PairOfStrings, DoubleWritable> {
 		private final static Map<String, Integer> word_total_map = new HashMap<String, Integer>();
 
+		/*
+		 * Preload the middle result file.
+		 * In the middle result file, each line contains a word and its frequency Freq(A), seperated by "\t"
+		 */
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
 			Path middle_result_path = new Path("mid/part-r-00000");
 			Configuration middle_conf = new Configuration();
-			FileSystem fs = FileSystem.get(URI.create(middle_result_path.toString()), middle_conf);
-
-			if (!fs.exists(middle_result_path)) {
-				throw new IOException(middle_result_path.toString() + " not exist!");
-			}
-
-			BufferedReader reader = null;
 			try {
-				reader = new BufferedReader(new InputStreamReader(fs.open(middle_result_path)));
-				String line;
-				while ((line = reader.readLine()) != null) {
-					String[] parts = line.split("\t");
-					word_total_map.put(parts[0], Integer.parseInt(parts[1]));
+				FileSystem fs = FileSystem.get(URI.create(middle_result_path.toString()), middle_conf);
+
+				if (!fs.exists(middle_result_path)) {
+					throw new IOException(middle_result_path.toString() + "not exist!");
 				}
-			} finally {
-				if (reader != null) {
-					reader.close();
+
+				FSDataInputStream in = fs.open(middle_result_path);
+				InputStreamReader inStream = new InputStreamReader(in);
+				BufferedReader reader = new BufferedReader(inStream);
+
+				LOG.info("reading...");
+				String line = reader.readLine();
+				String[] line_terms;
+				while (line != null) {
+					line_terms = line.split("\t");
+					word_total_map.put(line_terms[0], Integer.valueOf(line_terms[1]));
+					LOG.info("read one line!");
+					line = reader.readLine();
 				}
+				reader.close();
+				LOG.info("finished！");
+			} catch (Exception e) {
+				System.out.println(e.getMessage());
 			}
 		}
 
+		/*
+		 * TODO: write your second-pass Reducer here.
+		 */
 		@Override
-		protected void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context)
-				throws IOException, InterruptedException {
-			int freqAB = 0;
-			for (IntWritable value : values) {
-				freqAB += value.get();
-			}
-
-			int freqA = word_total_map.getOrDefault(key.getLeftElement(), 0);
-			int freqB = word_total_map.getOrDefault(key.getRightElement(), 0);
-
-			if (freqA > 0 && freqB > 0) {
-				double correlation = (double) freqAB / (freqA * freqB);
-				context.write(key, new DoubleWritable(correlation));
-			}
+		protected void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+			/*
+			 * TODO: Your implementation goes here.
+			 */
+			int pairCount = 0;
+            for (IntWritable val : values) {
+                pairCount += val.get();
+            }
+            String wordA = key.getLeftElement();
+            String wordB = key.getRightElement();
+            Integer freqA = word_total_map.get(wordA);
+            Integer freqB = word_total_map.get(wordB);
+            if (freqA == null || freqB == null || freqA == 0 || freqB == 0) {
+                return;
+            }
+            double correlation = (double) pairCount / (freqA * freqB);
+            context.write(key, new DoubleWritable(correlation));
 		}
 	}
 
