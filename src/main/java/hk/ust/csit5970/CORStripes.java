@@ -71,7 +71,7 @@ public class CORStripes extends Configured implements Tool {
 	public static class CORStripesMapper2 extends Mapper<LongWritable, Text, Text, MapWritable> {
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			Set<String> sorted_word_set = new TreeSet<>();
+			Set<String> sorted_word_set = new TreeSet<String>();
 			String doc_clean = value.toString().replaceAll("[^a-z A-Z]", " ");
 			StringTokenizer doc_tokenizers = new StringTokenizer(doc_clean);
 
@@ -79,7 +79,7 @@ public class CORStripes extends Configured implements Tool {
 				sorted_word_set.add(doc_tokenizers.nextToken().toLowerCase());
 			}
 
-			List<String> words = new ArrayList<>(sorted_word_set);
+			List<String> words = new ArrayList<String>(sorted_word_set);
 			for (int i = 0; i < words.size(); i++) {
 				MapWritable stripe = new MapWritable();
 				for (int j = i + 1; j < words.size(); j++) {
@@ -114,7 +114,7 @@ public class CORStripes extends Configured implements Tool {
 	 * Second-pass Reducer: 计算相关系数
 	 */
 	public static class CORStripesReducer2 extends Reducer<Text, MapWritable, PairOfStrings, DoubleWritable> {
-		private static Map<String, Integer> word_total_map = new HashMap<>();
+		private static Map<String, Integer> word_total_map = new HashMap<String, Integer>();
 
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
