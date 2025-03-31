@@ -60,88 +60,99 @@ public class CORStripes extends Configured implements Tool {
 	}
 
 	/*
-	 * TODO: Write your second-pass Mapper here.
+	 * Second-pass Mapper: 输出单词及其邻居的计数
 	 */
 	public static class CORStripesMapper2 extends Mapper<LongWritable, Text, Text, MapWritable> {
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			Set<String> sorted_word_set = new TreeSet<String>();
-			// Please use this tokenizer! DO NOT implement a tokenizer by yourself!
+			Set<String> sorted_word_set = new TreeSet<>();
 			String doc_clean = value.toString().replaceAll("[^a-z A-Z]", " ");
 			StringTokenizer doc_tokenizers = new StringTokenizer(doc_clean);
+
 			while (doc_tokenizers.hasMoreTokens()) {
-				sorted_word_set.add(doc_tokenizers.nextToken());
+				sorted_word_set.add(doc_tokenizers.nextToken().toLowerCase());
 			}
-			/*
-			 * TODO: Your implementation goes here.
-			 */
+
+			List<String> words = new ArrayList<>(sorted_word_set);
+			for (int i = 0; i < words.size(); i++) {
+				MapWritable stripe = new MapWritable();
+				for (int j = i + 1; j < words.size(); j++) {
+					stripe.put(new Text(words.get(j)), new IntWritable(1));
+				}
+				context.write(new Text(words.get(i)), stripe);
+			}
 		}
 	}
 
 	/*
-	 * TODO: Write your second-pass Combiner here.
+	 * Second-pass Combiner: 合并邻居计数
 	 */
 	public static class CORStripesCombiner2 extends Reducer<Text, MapWritable, Text, MapWritable> {
-		static IntWritable ZERO = new IntWritable(0);
-
 		@Override
 		protected void reduce(Text key, Iterable<MapWritable> values, Context context) throws IOException, InterruptedException {
-			/*
-			 * TODO: Your implementation goes here.
-			 */
+			MapWritable combined = new MapWritable();
+			for (MapWritable value : values) {
+				for (Map.Entry<Writable, Writable> entry : value.entrySet()) {
+					Text neighbor = (Text) entry.getKey();
+					IntWritable count = (IntWritable) entry.getValue();
+					combined.put(neighbor, new IntWritable(
+							((IntWritable) combined.getOrDefault(neighbor, new IntWritable(0))).get() + count.get()
+					));
+				}
+			}
+			context.write(key, combined);
 		}
 	}
 
 	/*
-	 * TODO: Write your second-pass Reducer here.
+	 * Second-pass Reducer: 计算相关系数
 	 */
 	public static class CORStripesReducer2 extends Reducer<Text, MapWritable, PairOfStrings, DoubleWritable> {
-		private static Map<String, Integer> word_total_map = new HashMap<String, Integer>();
-		private static IntWritable ZERO = new IntWritable(0);
+		private static Map<String, Integer> word_total_map = new HashMap<>();
 
-		/*
-		 * Preload the middle result file.
-		 * In the middle result file, each line contains a word and its frequency Freq(A), seperated by "\t"
-		 */
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
 			Path middle_result_path = new Path("mid/part-r-00000");
 			Configuration middle_conf = new Configuration();
-			try {
-				FileSystem fs = FileSystem.get(URI.create(middle_result_path.toString()), middle_conf);
+			FileSystem fs = FileSystem.get(URI.create(middle_result_path.toString()), middle_conf);
 
-				if (!fs.exists(middle_result_path)) {
-					throw new IOException(middle_result_path.toString() + "not exist!");
+			if (!fs.exists(middle_result_path)) {
+				throw new IOException(middle_result_path.toString() + " not exist!");
+			}
+
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(middle_result_path)))) {
+				String line;
+				while ((line = reader.readLine()) != null) {
+					String[] parts = line.split("\t");
+					word_total_map.put(parts[0], Integer.parseInt(parts[1]));
 				}
-
-				FSDataInputStream in = fs.open(middle_result_path);
-				InputStreamReader inStream = new InputStreamReader(in);
-				BufferedReader reader = new BufferedReader(inStream);
-
-				LOG.info("reading...");
-				String line = reader.readLine();
-				String[] line_terms;
-				while (line != null) {
-					line_terms = line.split("\t");
-					word_total_map.put(line_terms[0], Integer.valueOf(line_terms[1]));
-					LOG.info("read one line!");
-					line = reader.readLine();
-				}
-				reader.close();
-				LOG.info("finished！");
-			} catch (Exception e) {
-				System.out.println(e.getMessage());
 			}
 		}
 
-		/*
-		 * TODO: Write your second-pass Reducer here.
-		 */
 		@Override
 		protected void reduce(Text key, Iterable<MapWritable> values, Context context) throws IOException, InterruptedException {
-			/*
-			 * TODO: Your implementation goes here.
-			 */
+			MapWritable combined = new MapWritable();
+			for (MapWritable value : values) {
+				for (Map.Entry<Writable, Writable> entry : value.entrySet()) {
+					Text neighbor = (Text) entry.getKey();
+					IntWritable count = (IntWritable) entry.getValue();
+					combined.put(neighbor, new IntWritable(
+							((IntWritable) combined.getOrDefault(neighbor, new IntWritable(0))).get() + count.get()
+					));
+				}
+			}
+
+			int freqA = word_total_map.getOrDefault(key.toString(), 0);
+			for (Map.Entry<Writable, Writable> entry : combined.entrySet()) {
+				Text neighbor = (Text) entry.getKey();
+				int freqB = word_total_map.getOrDefault(neighbor.toString(), 0);
+				int freqAB = ((IntWritable) entry.getValue()).get();
+
+				if (freqA > 0 && freqB > 0) {
+					double correlation = (double) freqAB / (freqA * freqB);
+					context.write(new PairOfStrings(key.toString(), neighbor.toString()), new DoubleWritable(correlation));
+				}
+			}
 		}
 	}
 
