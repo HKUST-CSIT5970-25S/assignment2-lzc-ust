@@ -36,7 +36,7 @@ public class CORStripes extends Configured implements Tool {
 		@Override
 		public void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
-			HashMap<String, Integer> word_set = new HashMap<String, Integer>();
+			HashMap<String, Integer> word_set = new HashMap<>();
 			// Please use this tokenizer! DO NOT implement a tokenizer by yourself!
 			String clean_doc = value.toString().replaceAll("[^a-z A-Z]", " ");
 			StringTokenizer doc_tokenizer = new StringTokenizer(clean_doc);
@@ -120,11 +120,17 @@ public class CORStripes extends Configured implements Tool {
 				throw new IOException(middle_result_path.toString() + " not exist!");
 			}
 
-			try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(middle_result_path)))) {
+			BufferedReader reader = null;
+			try {
+				reader = new BufferedReader(new InputStreamReader(fs.open(middle_result_path)));
 				String line;
 				while ((line = reader.readLine()) != null) {
 					String[] parts = line.split("\t");
 					word_total_map.put(parts[0], Integer.parseInt(parts[1]));
+				}
+			} finally {
+				if (reader != null) {
+					reader.close();
 				}
 			}
 		}

@@ -46,7 +46,7 @@ public class CORPairs extends Configured implements Tool {
 		@Override
 		public void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
-			HashMap<String, Integer> word_set = new HashMap<>();
+			HashMap<String, Integer> word_set = new HashMap<String, Integer>();
 			// 使用提供的 tokenizer
 			String clean_doc = value.toString().replaceAll("[^a-z A-Z]", " ");
 			StringTokenizer doc_tokenizer = new StringTokenizer(clean_doc);
@@ -89,7 +89,7 @@ public class CORPairs extends Configured implements Tool {
 				throws IOException, InterruptedException {
 			// 使用提供的 tokenizer
 			StringTokenizer doc_tokenizer = new StringTokenizer(value.toString().replaceAll("[^a-z A-Z]", " "));
-			List<String> words = new ArrayList<>();
+			List<String> words = new ArrayList<String>();
 
 			while (doc_tokenizer.hasMoreTokens()) {
 				words.add(doc_tokenizer.nextToken().toLowerCase());
@@ -132,7 +132,7 @@ public class CORPairs extends Configured implements Tool {
 	 */
 	public static class CORPairsReducer2 extends
 			Reducer<PairOfStrings, IntWritable, PairOfStrings, DoubleWritable> {
-		private final static Map<String, Integer> word_total_map = new HashMap<>();
+		private final static Map<String, Integer> word_total_map = new HashMap<String, Integer>();
 
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
@@ -144,11 +144,17 @@ public class CORPairs extends Configured implements Tool {
 				throw new IOException(middle_result_path.toString() + " not exist!");
 			}
 
-			try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(middle_result_path)))) {
+			BufferedReader reader = null;
+			try {
+				reader = new BufferedReader(new InputStreamReader(fs.open(middle_result_path)));
 				String line;
 				while ((line = reader.readLine()) != null) {
 					String[] parts = line.split("\t");
 					word_total_map.put(parts[0], Integer.parseInt(parts[1]));
+				}
+			} finally {
+				if (reader != null) {
+					reader.close();
 				}
 			}
 		}
