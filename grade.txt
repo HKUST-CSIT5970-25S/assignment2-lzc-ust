@@ -1,0 +1,5 @@
+====BigramFrePairs==== Mark: 0/2 [line 2: words <['the', 'river', '0.11111111']> != <['the', 'wind', '0.037037037']>]
+====BigramFreStripes==== Mark: 0/2 [line 2: words <['the', 'river', '0.11111111']> != <['the', 'wind', '0.037037037']>]
+====CorPairs==== Mark: 0/3 [line 0: words <['a', 'about', '0.09090909090909091']> != <['Above', 'Also', '1.0']>]
+====CorStrip==== Mark: 0/3 [line 0: words <['a', 'about', '0.09090909090909091']> != <['Above', 'Also', '1.0']>]
+====Total Mark: 0/10
